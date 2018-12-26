@@ -93,8 +93,8 @@
  config PS3GELIC_UDBG
  	bool "PS3 udbg output via UDP broadcasts on Ethernet"
  	depends on PPC_PS3
---- linux-4.19/drivers/char/Makefile.vanilla	2018-11-15 22:50:09.094948261 +0000
-+++ linux-4.19/drivers/char/Makefile	2018-11-15 22:50:21.190948079 +0000
+--- a/drivers/char/Makefile	2018-12-26 11:36:10.222679391 +0100
++++ b/drivers/char/Makefile	2018-12-26 11:37:07.674950989 +0100
 @@ -52,6 +52,7 @@
  
  obj-$(CONFIG_PS3_FLASH)		+= ps3flash.o
