@@ -194,7 +194,7 @@
 +			priv->next_queue = 0;
 +
 +		if (q) {
-+			ps3disk_do_request(dev, q);
++			ps3disk_do_request(dev, blk_fetch_request(q));
 +			if (priv->req)
 +				break;
 +		}
@@ -273,7 +273,8 @@
 +	{
 +		if (test_bit(devidx, &dev->accessible_regions) == 0)
 +			continue;
-+		queue = blk_init_queue(ps3disk_request, &priv->lock);
++		queue = blk_mq_init_sq_queue(&priv->tag_set, &ps3disk_mq_ops, 1,
++					BLK_MQ_F_SHOULD_MERGE);
 +		if (!queue) {
 +			dev_err(&dev->sbd.core, "%s:%u: blk_init_queue failed\n",
 +				__func__, __LINE__);
@@ -315,7 +316,7 @@
 +			 "%s is a %s (%llu MiB total, %lu MiB region)\n",
 +			 gendisk->disk_name, priv->model, priv->raw_capacity >> 11,
 +			 get_capacity(gendisk) >> 11);
-+		device_add_disk(&dev->sbd.core, gendisk);
++		device_add_disk(&dev->sbd.core, gendisk, NULL);
  	}
 +	return 0;
 +fail_cleanup:
@@ -374,7 +375,7 @@
 -fail_cleanup_queue:
 -	blk_cleanup_queue(queue);
  	blk_mq_free_tag_set(&priv->tag_set);
- fail_teardown:
+- fail_teardown:
  	ps3stor_teardown(dev);
 @@ -513,9 +543,6 @@
  	kfree(priv);

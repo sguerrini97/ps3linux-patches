@@ -11,10 +11,11 @@
  
 --- a/arch/powerpc/platforms/cell/spu_base.c	2012-03-01 01:32:49.000000000 +0100
 +++ b/arch/powerpc/platforms/cell/spu_base.c	2012-03-05 17:52:47.659547098 +0100
-@@ -40,6 +40,10 @@
+@@ -40,6 +40,11 @@
  #include <asm/prom.h>
  #include <asm/kexec.h>
- 
++#include <linux/moduleparam.h>
+  
 +static int enum_shared = 0;
 +module_param(enum_shared, int, S_IRUGO);
 +MODULE_PARM_DESC(enum_shared, "Enumerate shared SPUs");

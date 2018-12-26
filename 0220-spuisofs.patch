@@ -24,7 +24,7 @@
 +obj-$(CONFIG_SPUISO_FS) += spuisofs.o
 --- /dev/null	2013-10-07 20:20:12.741358433 +0200
 +++ b/arch/powerpc/platforms/ps3/spuisofs.c	2013-10-07 22:15:48.445095266 +0200
-@@ -0,0 +1,1068 @@
+@@ -0,0 +1,1069 @@
 +
 +/*
 + * PS3 spuisofs
@@ -58,6 +58,7 @@
 +#include <linux/pagemap.h>
 +#include <linux/io.h>
 +#include <linux/interrupt.h>
++#include <linux/time.h>
 +
 +#include <asm/uaccess.h>
 +#include <asm/ps3.h>
@@ -158,7 +159,7 @@
 +static ssize_t spuisofs_spe_regs_read(struct file *file, char __user *buffer,
 +	size_t size, loff_t *pos)
 +{
-+	struct inode *inode = file->f_dentry->d_inode;
++	struct inode *inode = file->f_path.dentry->d_inode;
 +	struct spuisofs_inode_info *si = SPUISOFS_I(inode);
 +
 +	if (*pos >= inode->i_size)
@@ -174,7 +175,7 @@
 +static ssize_t spuisofs_spe_regs_write(struct file *file, const char __user *buffer,
 +	size_t size, loff_t *pos)
 +{
-+	struct inode *inode = file->f_dentry->d_inode;
++	struct inode *inode = file->f_path.dentry->d_inode;
 +	struct spuisofs_inode_info *si = SPUISOFS_I(inode);
 +
 +	if (*pos >= inode->i_size)
@@ -189,7 +190,7 @@
 + */
 +static int spuisofs_spe_regs_mmap(struct file *file, struct vm_area_struct *vma)
 +{
-+	struct inode *inode = file->f_dentry->d_inode;
++	struct inode *inode = file->f_path.dentry->d_inode;
 +	struct spuisofs_inode_info *si = SPUISOFS_I(inode);
 +	unsigned long size, pfn;
 +
@@ -218,7 +219,7 @@
 +static ssize_t spuisofs_spe_mem_read(struct file *file, char __user *buffer,
 +	size_t size, loff_t *pos)
 +{
-+	struct inode *inode = file->f_dentry->d_inode;
++	struct inode *inode = file->f_path.dentry->d_inode;
 +	struct spuisofs_inode_info *si = SPUISOFS_I(inode);
 +
 +	if (*pos >= inode->i_size)
@@ -234,7 +235,7 @@
 +static ssize_t spuisofs_spe_mem_write(struct file *file, const char __user *buffer,
 +	size_t size, loff_t *pos)
 +{
-+	struct inode *inode = file->f_dentry->d_inode;
++	struct inode *inode = file->f_path.dentry->d_inode;
 +	struct spuisofs_inode_info *si = SPUISOFS_I(inode);
 +
 +	if (*pos >= inode->i_size)
@@ -249,7 +250,7 @@
 + */
 +static int spuisofs_spe_mem_mmap(struct file *file, struct vm_area_struct *vma)
 +{
-+	struct inode *inode = file->f_dentry->d_inode;
++	struct inode *inode = file->f_path.dentry->d_inode;
 +	struct spuisofs_inode_info *si = SPUISOFS_I(inode);
 +	unsigned long size, pfn;
 +
@@ -278,7 +279,7 @@
 +static ssize_t spuisofs_mem_read(struct file *file, char __user *buffer,
 +	size_t size, loff_t *pos)
 +{
-+	struct inode *inode = file->f_dentry->d_inode;
++	struct inode *inode = file->f_path.dentry->d_inode;
 +	struct spuisofs_inode_info *si = SPUISOFS_I(inode);
 +
 +	if (*pos >= inode->i_size)
@@ -294,7 +295,7 @@
 +static ssize_t spuisofs_mem_write(struct file *file, const char __user *buffer,
 +	size_t size, loff_t *pos)
 +{
-+	struct inode *inode = file->f_dentry->d_inode;
++	struct inode *inode = file->f_path.dentry->d_inode;
 +	struct spuisofs_inode_info *si = SPUISOFS_I(inode);
 +
 +	if (*pos >= inode->i_size)
@@ -309,7 +310,7 @@
 + */
 +static int spuisofs_mem_mmap(struct file *file, struct vm_area_struct *vma)
 +{
-+	struct inode *inode = file->f_dentry->d_inode;
++	struct inode *inode = file->f_path.dentry->d_inode;
 +	struct spuisofs_inode_info *si = SPUISOFS_I(inode);
 +
 +	return remap_vmalloc_range(vma, si->virt_addr, 0);
@@ -353,7 +354,7 @@
 +static ssize_t spuisofs_run_write(struct file *file, const char __user *buffer,
 +	size_t size, loff_t *pos)
 +{
-+	struct inode *inode = file->f_dentry->d_inode;
++	struct inode *inode = file->f_path.dentry->d_inode;
 +	struct spuisofs_run_args args;
 +	int err;
 +
@@ -481,7 +482,7 @@
 +	inode->i_mode = mode;
 +	inode->i_uid = current_fsuid();
 +	inode->i_gid = current_fsgid();
-+	inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
++	inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
 +
 +	return (inode);
 +}
@@ -559,7 +560,7 @@
 +
 +fail:
 +
-+	list_for_each_entry_safe(dentry, tmp, &dir->d_subdirs, d_u.d_child)
++	list_for_each_entry_safe(dentry, tmp, &dir->d_subdirs, d_child)
 +		dput(dentry);
 +
 +	shrink_dcache_parent(dir);
@@ -596,8 +597,8 @@
 +	int err;
 + 
 +	sb->s_maxbytes = MAX_LFS_FILESIZE;
-+	sb->s_blocksize = PAGE_CACHE_SIZE;
-+	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
++	sb->s_blocksize = PAGE_SIZE;
++	sb->s_blocksize_bits = PAGE_SHIFT;
 +	sb->s_magic = SPUISOFS_MAGIC;
 +	sb->s_op = &spuisofs_super_ops;
 +	sb->s_time_gran = 1;
@@ -710,7 +711,7 @@
 +			printk(KERN_INFO"spuisofs: data storage fault at %llx (%llx)\n", ea, kernel_ea);
 +
 +			if (dsisr & MFC_DSISR_PTE_NOT_FOUND) {
-+				err = hash_page(kernel_ea, _PAGE_PRESENT, 0x300);
++				err = hash_page(kernel_ea, _PAGE_PRESENT, 0x300, dsisr);
 +				if (err) {
 +					printk(KERN_INFO"spuisofs: hash_page failed with %d\n", err);
 +					goto out;
