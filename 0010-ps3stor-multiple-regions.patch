@@ -249,32 +249,32 @@
  	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
  	if (!priv) {
  		error = -ENOMEM;
-@@ -447,64 +459,77 @@
+@@ -446,6 +446,9 @@
+ 		error = -ENOMEM;
  		goto fail_free_priv;
  	}
- 
++	
 +	for (regidx = 0; regidx < dev->num_regions; regidx++)
 +		dev->regions[regidx].flags = region_flags[regidx];
-+
+ 
  	error = ps3stor_setup(dev, ps3disk_interrupt);
  	if (error)
- 		goto fail_free_bounce;
+@@ -453,60 +456,68 @@
  
  	ps3disk_identify(dev);
  
 -	queue = blk_mq_init_sq_queue(&priv->tag_set, &ps3disk_mq_ops, 1,
--					BLK_MQ_F_SHOULD_MERGE);
--	if (IS_ERR(queue)) {
--		dev_err(&dev->sbd.core, "%s:%u: blk_mq_init_queue failed\n",
--			__func__, __LINE__);
--		error = PTR_ERR(queue);
--		goto fail_teardown;
 +	for (devidx = 0; devidx < dev->num_regions; devidx++)
 +	{
 +		if (test_bit(devidx, &dev->accessible_regions) == 0)
 +			continue;
 +		queue = blk_mq_init_sq_queue(&priv->tag_set, &ps3disk_mq_ops, 1,
-+					BLK_MQ_F_SHOULD_MERGE);
+ 					BLK_MQ_F_SHOULD_MERGE);
+-	if (IS_ERR(queue)) {
+-		dev_err(&dev->sbd.core, "%s:%u: blk_mq_init_queue failed\n",
+-			__func__, __LINE__);
+-		error = PTR_ERR(queue);
+-		goto fail_teardown;
 +		if (!queue) {
 +			dev_err(&dev->sbd.core, "%s:%u: blk_init_queue failed\n",
 +				__func__, __LINE__);
@@ -318,15 +318,7 @@
 +			 get_capacity(gendisk) >> 11);
 +		device_add_disk(&dev->sbd.core, gendisk, NULL);
  	}
-+	return 0;
-+fail_cleanup:
-+	for (devidx = 0; devidx < dev->num_regions; devidx++)
-+	{
-+		if (priv->gendisk[devidx]) {
-+			del_gendisk(priv->gendisk[devidx]);
-+			put_disk(priv->gendisk[devidx]);
-+		}
- 
+-
 -	priv->queue = queue;
 -	queue->queuedata = dev;
 -
@@ -346,11 +338,7 @@
 -			__LINE__);
 -		error = -ENOMEM;
 -		goto fail_cleanup_queue;
-+		if (priv->queue[devidx]) {
-+			blk_cleanup_queue(priv->queue[devidx]);
-+			blk_mq_free_tag_set(&priv->tag_set);
-+		}
- 	}
+-	}
 -
 -	priv->gendisk = gendisk;
 -	gendisk->major = ps3disk_major;
@@ -370,13 +358,27 @@
 -		 get_capacity(gendisk) >> 11);
 -
 -	device_add_disk(&dev->sbd.core, gendisk, NULL);
--	return 0;
+ 	return 0;
 -
 -fail_cleanup_queue:
 -	blk_cleanup_queue(queue);
- 	blk_mq_free_tag_set(&priv->tag_set);
-- fail_teardown:
+-	blk_mq_free_tag_set(&priv->tag_set);
+-fail_teardown:
++fail_cleanup:
++	for (devidx = 0; devidx < dev->num_regions; devidx++)
++	{
++		if (priv->gendisk[devidx]) {
++			del_gendisk(priv->gendisk[devidx]);
++			put_disk(priv->gendisk[devidx]);
++		}
++		if (priv->queue[devidx]) {
++			blk_cleanup_queue(priv->queue[devidx]);
++			blk_mq_free_tag_set(&priv->tag_set);
++		}
++	}
  	ps3stor_teardown(dev);
+ fail_free_bounce:
+ 	kfree(dev->bounce_buf);
 @@ -513,9 +543,6 @@
  	kfree(priv);
  	ps3_system_bus_set_drvdata(_dev, NULL);
